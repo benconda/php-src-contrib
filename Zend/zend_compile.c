@@ -4635,6 +4635,29 @@ static void zend_compile_call(znode *result, zend_ast *ast, uint32_t type) /* {{
 		return;
 	}
 
+    {
+		/* If imported class is detected, consider it's a new statement */
+		if(!zend_is_not_imported(zend_ast_get_str(name_ast))) {
+			znode ctor_result, class_node;
+			zend_op *opline;
+			zval_ptr_dtor(&name_node.u.constant);
+			zend_compile_class_ref(&class_node, name_ast, ZEND_FETCH_CLASS_SILENT);
+			opline = zend_emit_op(result, ZEND_NEW, NULL, NULL);
+			if (class_node.op_type == IS_CONST) {
+				opline->op1_type = IS_CONST;
+				opline->op1.constant = zend_add_class_name_literal(
+					Z_STR(class_node.u.constant));
+				opline->op2.num = zend_alloc_cache_slot();
+			} else {
+				SET_NODE(opline->op1, &class_node);
+			}
+			zend_compile_call_common(&ctor_result, args_ast, NULL, ast->lineno);
+			zend_do_free(&ctor_result);
+
+			return;
+		}
+	}
+
 	{
 		bool runtime_resolution = zend_compile_function_name(&name_node, name_ast);
 		if (runtime_resolution) {
