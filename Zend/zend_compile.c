@@ -4635,12 +4635,18 @@ static void zend_compile_call(znode *result, zend_ast *ast, uint32_t type) /* {{
 		return;
 	}
 
-    {
+  {
+	    zend_string *import_name;
+	    if (FC(imports)) {
+	    	import_name = zend_hash_find_ptr(FC(imports), zend_ast_get_str(name_ast));
+	    	if (import_name != NULL) {
+	      		zend_error(E_WARNING, "Imported class '%s' found, name ast is %s", ZSTR_VAL(import_name), ZSTR_VAL(zend_ast_get_str(name_ast)));
+	    	}
+	    }
 		/* If imported class is detected, consider it's a new statement */
-		if(!zend_is_not_imported(zend_ast_get_str(name_ast))) {
+		if(FC(imports) && zend_hash_find_ptr_lc(FC(imports), zend_ast_get_str(name_ast)) != NULL && (!FC(imports_function) || zend_hash_find_ptr_lc(FC(imports_function), zend_ast_get_str(name_ast)) == NULL)) {
 			znode ctor_result, class_node;
 			zend_op *opline;
-			zval_ptr_dtor(&name_node.u.constant);
 			zend_compile_class_ref(&class_node, name_ast, ZEND_FETCH_CLASS_SILENT);
 			opline = zend_emit_op(result, ZEND_NEW, NULL, NULL);
 			if (class_node.op_type == IS_CONST) {
